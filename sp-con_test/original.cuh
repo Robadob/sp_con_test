@@ -14,11 +14,24 @@ namespace original
 		unsigned long long tex = 0;
 	};
 
-	Times construct()
+	Times construct(const unsigned int &POPULATION_SIZE, const glm::uvec2 &DIMS, const unsigned int &BIN_COUNT)
 	{
 		Times t = {};
 
 		return t;
+	}
+	void logHeader(std::ofstream &f, unsigned int &i)
+	{
+		f << "(" << (i++) << ") " << "Original_Overall,";
+		//...
+	}
+	void logResult(std::ofstream &f, const Times &t)
+	{
+		f << t.overall << ",";
+		f << t.histogram << ",";
+		f << t.scan << ",";
+		f << t.reorder << ",";
+		f << t.tex << ",";
 	}
 }
 #endif //__original_cuh__

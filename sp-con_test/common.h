@@ -8,11 +8,18 @@
 #include <curand_kernel.h>
 #include <texture_fetch_functions.h>
 
+#include <glm/gtx/component_wise.hpp>
+#include <glm/gtc/constants.hpp>
+#include <fstream>
+#include <string>
+#include <ctime>
+
+//Common super-struct for timings
 struct ConstructionTimes
 {
 	float overall = 0;
 };
-
+//CUDA error handling
 static void HandleCUDAError(const char *file,
 	int line,
 	cudaError_t status = cudaGetLastError()) {
@@ -31,17 +38,25 @@ static void HandleCUDAError(const char *file,
 #define CUDA_CALL( err ) (HandleCUDAError(__FILE__, __LINE__ , err))
 #define CUDA_CHECK() (HandleCUDAError(__FILE__, __LINE__))
 
+//Cuda Constant
 __device__ __constant__ unsigned int d_agentCount;
-__device__ __constant__ float d_environmentWidth_float;
-__device__ __constant__ unsigned int d_gridDim;
-__device__ __constant__ float d_gridDim_float;
+__device__ __constant__ glm::uvec2 d_gridDim;
+__device__ __constant__ glm::vec2 d_gridDim_float;
 __device__ __constant__ float d_RADIUS;
 __device__ __constant__ float d_R_SIN_45;
-__device__ __constant__ float d_binWidth;
-
+//Dynamic cuda memory
+glm::vec2 *d_agents_in = nullptr;
+glm::vec2 *d_agents_out = nullptr;
+unsigned int *d_keys = nullptr;
+unsigned int *d_vals = nullptr;
+unsigned int *d_PBM_counts = nullptr;
+unsigned int *d_PBM = nullptr;
+//Tex buffers
 texture<float2> d_texMessages;
 texture<unsigned int> d_texPBM;
 
+const unsigned long long RNG_SEED = 12;
+//Common util functions
 __global__ void init_curand(curandState *state, unsigned long long seed) {
 	int id = blockIdx.x * blockDim.x + threadIdx.x;
 	if (id < d_agentCount)
@@ -53,21 +68,21 @@ __global__ void init_agents(curandState *state, glm::vec2 *locationMessages) {
 		return;
 	//curand_unform returns 0<x<=1.0, not much can really do about 0 exclusive
 	//negate and  + 1.0, to make  0<=x<1.0
-	locationMessages[id].x = (-curand_uniform(&state[id]) + 1.0f)*d_environmentWidth_float;
-	locationMessages[id].y = (-curand_uniform(&state[id]) + 1.0f)*d_environmentWidth_float;
+	locationMessages[id].x = (-curand_uniform(&state[id]) + 1.0f)*d_gridDim_float.x;
+	locationMessages[id].y = (-curand_uniform(&state[id]) + 1.0f)*d_gridDim_float.y;
 }
 __device__ __forceinline__ glm::ivec2 getGridPosition(glm::vec2 worldPos)
 {
 	//Clamp each grid coord to 0<=x<dim
-	return clamp(floor((worldPos / d_environmentWidth_float)*d_gridDim_float), glm::vec2(0), glm::vec2((float)d_gridDim - 1));
+	return clamp(floor(worldPos), glm::vec2(0), glm::vec2(d_gridDim) - glm::vec2(1.0f));
 }
 __device__ __forceinline__ unsigned int getHash(glm::ivec2 gridPos)
 {
 	//Bound gridPos to gridDimensions
-	gridPos = clamp(gridPos, glm::ivec2(0), glm::ivec2(d_gridDim - 1));
+	gridPos = clamp(gridPos, glm::ivec2(0), glm::ivec2(d_gridDim) - glm::ivec2(1));
 	//Compute hash (effectivley an index for to a bin within the partitioning grid in this case)
 	return (unsigned int)(
-		(gridPos.y * d_gridDim) +					//y
+		(gridPos.y * d_gridDim.x) +					//y
 		gridPos.x); 	                            //x
 }
 #endif //__common_h__

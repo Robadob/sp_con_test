@@ -17,7 +17,7 @@ namespace atomic
 
 	namespace
 	{
-		__global__ void atomicHistogram(unsigned int* bin_index, unsigned int* bin_sub_index, unsigned int *pbm_counts, glm::vec2 *messageBuffer)
+		__global__ void atomicHistogram(unsigned int* bin_index, unsigned int* bin_sub_index, unsigned int *pbm_counts, const glm::vec2 *messageBuffer)
 		{
 			unsigned int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 			//Kill excess threads
@@ -30,10 +30,10 @@ namespace atomic
 			bin_sub_index[index] = bin_idx;
 		}
 		__global__ void reorderLocationMessages(
-			unsigned int* bin_index,
-			unsigned int* bin_sub_index,
-			unsigned int *pbm,
-			glm::vec2 *unordered_messages,
+			const unsigned int* bin_index,
+			const unsigned int* bin_sub_index,
+			const unsigned int *pbm,
+			const glm::vec2 *unordered_messages,
 			glm::vec2 *ordered_messages
 		)
 		{
@@ -47,100 +47,114 @@ namespace atomic
 			//Order messages into swap space
 			ordered_messages[sorted_index] = unordered_messages[index];
 		}
-		Times construct()
-		{
-			Times t = {};
+		size_t d_CUB_temp_storage_bytes = 0;
+		void *d_CUB_temp_storage = nullptr;
+	}
+	Times construct(const unsigned int &POPULATION_SIZE, const glm::uvec2 &DIMS, const unsigned int &BIN_COUNT)
+	{
+		Times t = {};
 
-			cudaEvent_t start_PBM, end_histogram, end_scan, end_reorder, end_PBM;
-			cudaEventCreate(&start_PBM);
-			cudaEventCreate(&end_histogram);
-			cudaEventCreate(&end_scan);
-			cudaEventCreate(&end_reorder);
-			cudaEventCreate(&end_PBM);
-			//BuildPBM
-			unsigned int *d_PBM_counts = nullptr;
-			unsigned int *d_PBM = nullptr;
-			CUDA_CALL(cudaMalloc(&d_PBM_counts, (BIN_COUNT + 1) * sizeof(unsigned int)));
-			CUDA_CALL(cudaMalloc(&d_PBM, (BIN_COUNT + 1) * sizeof(unsigned int)));
-			{//Resize cub temp if required
-				size_t bytesCheck;
-				cub::DeviceScan::ExclusiveSum(nullptr, bytesCheck, d_PBM, d_PBM_counts, BIN_COUNT + 1);
-				if (bytesCheck > d_CUB_temp_storage_bytes)
-				{
-					if (d_CUB_temp_storage)
-					{
-						CUDA_CALL(cudaFree(d_CUB_temp_storage));
-					}
-					d_CUB_temp_storage_bytes = bytesCheck;
-					CUDA_CALL(cudaMalloc(&d_CUB_temp_storage, d_CUB_temp_storage_bytes));
-				}
-			}
-
-			//For 200 iterations (to produce an average)
-			float pbmMillis = 0, kernelMillis = 0;
-			const unsigned int ITERATIONS = 200;
-			for (unsigned int i = 0; i < ITERATIONS; ++i)
+		cudaEvent_t start_PBM, end_histogram, end_scan, end_reorder, end_PBM;
+		cudaEventCreate(&start_PBM);
+		cudaEventCreate(&end_histogram);
+		cudaEventCreate(&end_scan);
+		cudaEventCreate(&end_reorder);
+		cudaEventCreate(&end_PBM);
+		{//Resize cub temp if required
+			size_t bytesCheck;
+			cub::DeviceScan::ExclusiveSum(nullptr, bytesCheck, d_PBM, d_PBM_counts, BIN_COUNT + 1);
+			if (bytesCheck > d_CUB_temp_storage_bytes)
 			{
-				//Reset each run of average model
-#ifndef CIRCLES
-				CUDA_CALL(cudaMemcpy(d_out, d_agents_init, sizeof(glm::vec2)*AGENT_COUNT, cudaMemcpyDeviceToDevice));
-#endif
-				cudaEventRecord(start_PBM);
-				{//Build atomic histogram
-					CUDA_CALL(cudaMemset(d_PBM_counts, 0x00000000, (BIN_COUNT + 1) * sizeof(unsigned int)));
-					int blockSize;   // The launch configurator returned block size 
-					CUDA_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blockSize, atomicHistogram, 32, 0));//Randomly 32
-																												 // Round up according to array size
-					int gridSize = (AGENT_COUNT + blockSize - 1) / blockSize;
-					atomicHistogram << <gridSize, blockSize >> >(d_keys, d_vals, d_PBM_counts, d_out);
-					CUDA_CALL(cudaDeviceSynchronize());
+				if (d_CUB_temp_storage)
+				{
+					CUDA_CALL(cudaFree(d_CUB_temp_storage));
 				}
-				cudaEventRecord(end_histogram);
-				{//Scan (sum), to finalise PBM
-					cub::DeviceScan::ExclusiveSum(d_CUB_temp_storage, d_CUB_temp_storage_bytes, d_PBM_counts, d_PBM, BIN_COUNT + 1);
-				}
-				cudaEventRecord(end_scan);
-				{//Reorder messages
-					int blockSize;   // The launch configurator returned block size 
-					CUDA_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blockSize, reorderLocationMessages, 32, 0));//Randomly 32
-																														 // Round up according to array size
-					int gridSize = (AGENT_COUNT + blockSize - 1) / blockSize;
-					//Copy messages from d_messages to d_messages_swap, in hash order
-					reorderLocationMessages << <gridSize, blockSize >> >(d_keys, d_vals, d_PBM, d_out, d_agents);
-					CUDA_CHECK();
-					//Wait for return
-					CUDA_CALL(cudaDeviceSynchronize());
-				}
-				cudaEventRecord(end_reorder);
-				{//Fill PBM and Message Texture Buffers
-					CUDA_CALL(cudaBindTexture(nullptr, d_texMessages, d_agents, sizeof(glm::vec2) * AGENT_COUNT));
-					CUDA_CALL(cudaBindTexture(nullptr, d_texPBM, d_PBM, sizeof(unsigned int) * (BIN_COUNT + 1)));
-				}
-				cudaEventRecord(end_PBM);
-				CUDA_CALL(cudaDeviceSynchronize());
-				//Accumulate timings
-				cudaEventSynchronize(end_PBM);
-				Times _t;
-				cudaEventElapsedTime(&_t.overall, start_PBM, end_histogram);
-				cudaEventElapsedTime(&_t.histogram, start_PBM, end_PBM);
-				cudaEventElapsedTime(&_t.scan, end_histogram, end_scan);
-				cudaEventElapsedTime(&_t.reorder, end_scan, end_reorder);
-				cudaEventElapsedTime(&_t.tex, end_reorder, end_PBM);
-				t.overall += _t.overall;
-				t.histogram += _t.histogram;
-				t.scan += _t.scan;
-				t.reorder += _t.reorder;
-				t.tex += _t.tex;
+				d_CUB_temp_storage_bytes = bytesCheck;
+				CUDA_CALL(cudaMalloc(&d_CUB_temp_storage, d_CUB_temp_storage_bytes));
 			}
-			//Reduce to average
-			t.overall /= ITERATIONS;
-			t.histogram /= ITERATIONS;
-			t.scan /= ITERATIONS;
-			t.reorder /= ITERATIONS;
-			t.tex /= ITERATIONS;
-
-			return t;
 		}
+
+		//For 200 iterations (to produce an average)
+		const unsigned int ITERATIONS = 1;
+		//for (unsigned int i = 0; i < ITERATIONS; ++i)
+		//{
+		//	//Reset each run of average model
+		//	CUDA_CALL(cudaMemcpy(d_out, d_agents_init, sizeof(glm::vec2)*POPULATION_SIZE, cudaMemcpyDeviceToDevice));
+
+			cudaEventRecord(start_PBM);
+			{//Build atomic histogram
+				CUDA_CALL(cudaMemset(d_PBM_counts, 0x00000000, (BIN_COUNT + 1) * sizeof(unsigned int)));
+				int blockSize;   // The launch configurator returned block size 
+				CUDA_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blockSize, atomicHistogram, 32, 0));//Randomly 32
+																											 // Round up according to array size
+				int gridSize = (POPULATION_SIZE + blockSize - 1) / blockSize;
+				atomicHistogram <<<gridSize, blockSize >> >(d_keys, d_vals, d_PBM_counts, d_agents_in);
+				CUDA_CALL(cudaDeviceSynchronize());
+			}
+			cudaEventRecord(end_histogram);
+			{//Scan (sum), to finalise PBM
+				cub::DeviceScan::ExclusiveSum(d_CUB_temp_storage, d_CUB_temp_storage_bytes, d_PBM_counts, d_PBM, BIN_COUNT + 1);
+			}
+			cudaEventRecord(end_scan);
+			{//Reorder messages
+				int blockSize;   // The launch configurator returned block size 
+				CUDA_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blockSize, reorderLocationMessages, 32, 0));//Randomly 32
+																													 // Round up according to array size
+				int gridSize = (POPULATION_SIZE + blockSize - 1) / blockSize;
+				//Copy messages from d_messages to d_messages_swap, in hash order
+				reorderLocationMessages << <gridSize, blockSize >> >(d_keys, d_vals, d_PBM, d_agents_in, d_agents_out);
+				CUDA_CHECK();
+				//Wait for return
+				CUDA_CALL(cudaDeviceSynchronize());
+			}
+			cudaEventRecord(end_reorder);
+			{//Fill PBM and Message Texture Buffers
+				CUDA_CALL(cudaBindTexture(nullptr, d_texMessages, d_agents_out, sizeof(glm::vec2) * POPULATION_SIZE));
+				CUDA_CALL(cudaBindTexture(nullptr, d_texPBM, d_PBM, sizeof(unsigned int) * (BIN_COUNT + 1)));
+			}
+			cudaEventRecord(end_PBM);
+			CUDA_CALL(cudaDeviceSynchronize());
+		    //Release temp resources
+			CUDA_CALL(cudaUnbindTexture(d_texPBM));
+			CUDA_CALL(cudaUnbindTexture(d_texMessages));
+			//Accumulate timings
+			cudaEventSynchronize(end_PBM);
+			Times _t;
+			cudaEventElapsedTime(&_t.overall, start_PBM, end_histogram);
+			cudaEventElapsedTime(&_t.histogram, start_PBM, end_PBM);
+			cudaEventElapsedTime(&_t.scan, end_histogram, end_scan);
+			cudaEventElapsedTime(&_t.reorder, end_scan, end_reorder);
+			cudaEventElapsedTime(&_t.tex, end_reorder, end_PBM);
+			t.overall += _t.overall;
+			t.histogram += _t.histogram;
+			t.scan += _t.scan;
+			t.reorder += _t.reorder;
+			t.tex += _t.tex;
+		//}//for-ITERATIONS
+		//Reduce to average
+		t.overall /= ITERATIONS;
+		t.histogram /= ITERATIONS;
+		t.scan /= ITERATIONS;
+		t.reorder /= ITERATIONS;
+		t.tex /= ITERATIONS;
+
+		return t;
+	}
+	void logHeader(std::ofstream &f, unsigned int &i)
+	{
+		f << "(" << (i++) << ") " << "Atomic_Overall,";
+		f << "(" << (i++) << ") " << "Atomic_Histogram,";
+		f << "(" << (i++) << ") " << "Atomic_Scan,";
+		f << "(" << (i++) << ") " << "Atomic_Reorder,";
+		f << "(" << (i++) << ") " << "Atomic_Tex,";
+	}
+	void logResult(std::ofstream &f, const Times &t)
+	{
+		f << t.overall << ",";
+		f << t.histogram << ",";
+		f << t.scan << ",";
+		f << t.reorder << ",";
+		f << t.tex << ",";
 	}
 }
 #endif //__atomic_cuh__
