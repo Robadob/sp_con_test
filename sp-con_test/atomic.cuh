@@ -120,8 +120,8 @@ namespace atomic
 			//Accumulate timings
 			cudaEventSynchronize(end_PBM);
 			Times _t;
-			cudaEventElapsedTime(&_t.overall, start_PBM, end_histogram);
-			cudaEventElapsedTime(&_t.histogram, start_PBM, end_PBM);
+			cudaEventElapsedTime(&_t.overall, start_PBM, end_PBM);
+			cudaEventElapsedTime(&_t.histogram, start_PBM, end_histogram);
 			cudaEventElapsedTime(&_t.scan, end_histogram, end_scan);
 			cudaEventElapsedTime(&_t.reorder, end_scan, end_reorder);
 			cudaEventElapsedTime(&_t.tex, end_reorder, end_PBM);

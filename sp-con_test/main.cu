@@ -40,12 +40,12 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 	glm::vec2 *d_agents_init;
 	curandState *d_rng = nullptr;
 	//Pre-calc init final state
-	const glm::uvec2 INIT_DIMS = glm::uvec2(floor(sqrt(START_BINS)));
+	const glm::uvec2 INIT_DIMS = glm::uvec2(static_cast<unsigned int>(floor(sqrt(START_BINS))));
 	const unsigned int INIT_BINS = glm::compMul(INIT_DIMS);
 	const glm::uvec2 FINAL_DIMS = glm::uvec2(INIT_DIMS.x, ceil(static_cast<float>(END_BINS)/ INIT_DIMS.x));
 	const unsigned int FINAL_BINS = glm::compMul(FINAL_DIMS);
 	const glm::vec2 STEP_DIMS = glm::vec2(0, static_cast<float>(FINAL_DIMS.y - INIT_DIMS.y) / STEPS);
-	const unsigned int AVERAGE_NEIGHBOURS = (unsigned int)(POP_SIZE*glm::pi<float>() / INIT_BINS);
+	const unsigned int AVERAGE_NEIGHBOURS = static_cast<unsigned int>(POP_SIZE * glm::pi<float>() / INIT_BINS);
 	//Allocate SP memory
 	{
 		//Agents
@@ -59,6 +59,9 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 		//Final PBM storage
 		CUDA_CALL(cudaMalloc(&d_PBM_counts, (FINAL_BINS + 1) * sizeof(unsigned int)));
 		CUDA_CALL(cudaMalloc(&d_PBM, (FINAL_BINS + 1) * sizeof(unsigned int)));
+		//original.cuh swap space
+		CUDA_CALL(cudaMalloc(&d_keys_swap, sizeof(unsigned int) * POP_SIZE));
+		CUDA_CALL(cudaMalloc(&d_vals_swap, sizeof(unsigned int) * POP_SIZE));
 	}
 	//Init Actor Population
 	{
@@ -148,6 +151,9 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 		//Final PBM storage
 		CUDA_CALL(cudaFree(d_PBM_counts));
 		CUDA_CALL(cudaFree(d_PBM));
+		//original.cuh swap space
+		CUDA_CALL(cudaFree(d_keys_swap));
+		CUDA_CALL(cudaFree(d_vals_swap));
 	}
 }
 void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, const unsigned int &END_BINS, const unsigned int &STEPS, const char *logPath)

@@ -1,6 +1,9 @@
 #ifndef __common_h__
 #define __common_h__
 
+#define GLM_FORCE_CUDA
+#define GLM_FORCE_NO_CTOR_INIT
+
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include <cub/cub.cuh>
@@ -47,13 +50,20 @@ __device__ __constant__ float d_R_SIN_45;
 //Dynamic cuda memory
 glm::vec2 *d_agents_in = nullptr;
 glm::vec2 *d_agents_out = nullptr;
+//Common
 unsigned int *d_keys = nullptr;
 unsigned int *d_vals = nullptr;
 unsigned int *d_PBM_counts = nullptr;
 unsigned int *d_PBM = nullptr;
+//original.cuh
+unsigned int *d_keys_swap = nullptr;
+unsigned int *d_vals_swap = nullptr;
+
 //Tex buffers
 texture<float2> d_texMessages;
 texture<unsigned int> d_texPBM;
+//Double array PBM from original.cuh
+texture<unsigned int> d_texPBM_counts;
 
 const unsigned long long RNG_SEED = 12;
 //Common util functions
