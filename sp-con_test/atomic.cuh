@@ -137,7 +137,7 @@ namespace atomic
 		t.scan /= ITERATIONS;
 		t.reorder /= ITERATIONS;
 		t.tex /= ITERATIONS;
-
+		CUDA_CHECK();
 		return t;
 	}
 	void logHeader(std::ofstream &f, unsigned int &i)

@@ -27,7 +27,7 @@ namespace original
 			keys[index] = hash;
 			vals[index] = index;
 		}
-		__global__ void reorderLocationMessages(
+		__global__ void reorderLocationMessages2(
 			const unsigned int *keys,
 			const unsigned int *vals,
 			unsigned int *pbm_index,
@@ -40,7 +40,7 @@ namespace original
 
 			int index = (blockIdx.x * blockDim.x) + threadIdx.x;
 
-			//Load current key and copy it into shared
+			////Load current key and copy it into shared
 			unsigned int key;
 			unsigned int old_pos;
 			if (index < d_agentCount)
@@ -51,7 +51,7 @@ namespace original
 				sm_data[threadIdx.x] = key;
 			}
 			__syncthreads();
-			//Kill excess threads
+			////Kill excess threads
 			if (index >= d_agentCount) return;
 
 			//Load next key
@@ -79,7 +79,7 @@ namespace original
 					pbm_count[key - 1] = index;
 				}
 			}
-			if (index == d_agentCount - 1)
+			if (index == d_agentCount - 1)//New debugger stalls here.
 			{
 				pbm_count[key] = d_agentCount;
 			}
@@ -174,11 +174,11 @@ namespace original
 		cudaEventRecord(end_memset);
 		{//Reorder messages and create PBM index
 			int minGridSize, blockSize;   // The launch configurator returned block size 
-			cudaOccupancyMaxPotentialBlockSizeVariableSMem(&minGridSize, &blockSize, reorderLocationMessages, requiredSM_reorderLocationMessages, 0);
+			cudaOccupancyMaxPotentialBlockSizeVariableSMem(&minGridSize, &blockSize, reorderLocationMessages2, requiredSM_reorderLocationMessages, 0);
 			// Round up according to array size
 			int gridSize = (POPULATION_SIZE + blockSize - 1) / blockSize;
 			//Copy messages from d_messages to d_messages_swap, in hash order
-			reorderLocationMessages << <gridSize, blockSize, requiredSM_reorderLocationMessages(blockSize) >> >(d_keys, d_vals, d_PBM, d_PBM_counts, d_agents_in, d_agents_out);
+			reorderLocationMessages2 << <gridSize, blockSize, requiredSM_reorderLocationMessages(blockSize) >> >(d_keys, d_vals, d_PBM, d_PBM_counts, d_agents_in, d_agents_out);
 			CUDA_CHECK();
 			//Wait for return
 			CUDA_CALL(cudaDeviceSynchronize());
@@ -189,8 +189,10 @@ namespace original
 			CUDA_CALL(cudaBindTexture(nullptr, d_texPBM, d_PBM, sizeof(unsigned int) * (BIN_COUNT)));
 			CUDA_CALL(cudaBindTexture(nullptr, d_texPBM_counts, d_PBM_counts, sizeof(unsigned int) * (BIN_COUNT)));
 		}
+		cudaEventRecord(end_PBM);
 		CUDA_CALL(cudaDeviceSynchronize());
 		//Release temp resources
+		CUDA_CALL(cudaUnbindTexture(d_texPBM_counts));
 		CUDA_CALL(cudaUnbindTexture(d_texPBM));
 		CUDA_CALL(cudaUnbindTexture(d_texMessages));
 		//Accumulate timings
@@ -201,7 +203,7 @@ namespace original
 		cudaEventElapsedTime(&t.memset, end_sort, end_memset);
 		cudaEventElapsedTime(&t.reorder, end_memset, end_reorder);
 		cudaEventElapsedTime(&t.tex, end_reorder, end_PBM);
-		//End overall timer
+		CUDA_CHECK();
 		return t;
 	}
 	void logHeader(std::ofstream &f, unsigned int &i)

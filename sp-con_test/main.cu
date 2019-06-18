@@ -31,6 +31,8 @@ void runDynamic(const unsigned int &popSize, const unsigned int &startBins, cons
 int main()
 {
 	//Static distribution of agents
+	runStatic(100000, 5000, 1000000, 200, "static-100k");
+	runStatic(1000000, 5000, 1000000, 200, "static-1m");
 	return EXIT_SUCCESS;
 }
 
@@ -119,9 +121,16 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 		const unsigned int t_BINS = glm::compMul(t_DIMS);
 		//Init per step constants
 		{
-			CUDA_CALL(cudaMemcpyToSymbol(d_gridDim, &t_DIMS, sizeof(unsigned int)));
+			CUDA_CALL(cudaMemcpyToSymbol(d_gridDim, &t_DIMS, sizeof(glm::uvec2)));
 			glm::vec2 dims_float = glm::vec2(t_DIMS);
-			CUDA_CALL(cudaMemcpyToSymbol(d_gridDim_float, &dims_float, sizeof(float)));
+			CUDA_CALL(cudaMemcpyToSymbol(d_gridDim_float, &dims_float, sizeof(glm::vec2)));
+		}
+		//Log config
+		{
+			logF << t_DIMS.x << ",";
+			logF << t_DIMS.y << ",";
+			logF << t_BINS << ",";
+			logF << POP_SIZE << ",";
 		}
 		//Reset actor pop (this *should* be redundant)
 		CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
