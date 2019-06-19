@@ -232,7 +232,10 @@ void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, co
 	//Init log file (output run config to first line, output column headers to second line)
 	{
 		//Config
-		logF << "[Static Mode], ";
+#ifdef _DEBUG
+		logF << "{DEBUG COMPILATION}, ";
+#endif
+		logF << "[Dynamic Mode], ";
 		logF << "Population Size: " << POP_SIZE << ", ";
 		logF << "Start Bins: " << INIT_BINS << ", ";
 		logF << "End Bins: " << FINAL_BINS << ", ";
