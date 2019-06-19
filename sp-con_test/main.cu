@@ -31,12 +31,15 @@ void runDynamic(const unsigned int &popSize, const unsigned int &startBins, cons
 int main()
 {
 	//Static distribution of agents
-	runStatic(100000, 5000, 1000000, 200, "static-100k");
-	runStatic(1000000, 5000, 1000000, 200, "static-1m");
+	//runStatic(100000, 5000, 15000000, 200, "static-100k");
+	//runStatic(1000000, 5000, 15000000, 200, "static-1m");
+	//runDynamic(100000, 5000, 15000000, 200, "dynamic-100k");
+	//runDynamic(1000000, 5000, 15000000, 200, "dynamic-1m");
+	runDynamic(50000, 5000, 20000000, 200, "dynamic-50k");//Most representative of how I found this with FGPU/KeratinoCyte
 	return EXIT_SUCCESS;
 }
 
-void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, const unsigned int &END_BINS, const unsigned int &STEPS, const char *logPath)
+void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, const unsigned int &END_BINS, const unsigned int &STEPS, const char *logName)
 {
 	//Defined out of scope of methods being tested
 	glm::vec2 *d_agents_init;
@@ -92,12 +95,15 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 	//Create & open log file
 	std::ofstream logF;
 	{
-		std::string path = std::string(logPath) + std::to_string(time(nullptr)) + ".csv";
+		std::string path = std::string(logName) + std::to_string(time(nullptr)) + ".csv";
 		logF.open(path);
 	}
 	//Init log file (output run config to first line, output column headers to second line)
 	{
 		//Config
+#ifdef _DEBUG
+		logF << "{DEBUG COMPILATION}, ";
+#endif
 		logF << "[Static Mode], ";
 		logF << "Population Size: " << POP_SIZE << ", ";
 		logF << "Start Bins: " << INIT_BINS << ", ";
@@ -120,6 +126,7 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 	//For-each step
 	for(unsigned int t = 0;t<=STEPS;++t)
 	{
+		printf("\r%u/%u", t, STEPS);
 		const glm::uvec2 t_DIMS = INIT_DIMS + glm::uvec2(round(STEP_DIMS.x*t),round(STEP_DIMS.y*t)); 
 		const unsigned int t_BINS = glm::compMul(t_DIMS);
 		//Init per step constants
@@ -167,8 +174,9 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 		CUDA_CALL(cudaFree(d_keys_swap));
 		CUDA_CALL(cudaFree(d_vals_swap));
 	}
+	printf("\r%s Completed!\n", logName);
 }
-void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, const unsigned int &END_BINS, const unsigned int &STEPS, const char *logPath)
+void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, const unsigned int &END_BINS, const unsigned int &STEPS, const char *logName)
 {
 	//Defined out of scope of methods being tested
 	glm::vec2 *d_agents_init;
@@ -218,7 +226,7 @@ void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, co
 	//Create & open log file
 	std::ofstream logF;
 	{
-		std::string path = std::string(logPath) + std::to_string(time(nullptr)) + ".csv";
+		std::string path = std::string(logName) + std::to_string(time(nullptr)) + ".csv";
 		logF.open(path);
 	}
 	//Init log file (output run config to first line, output column headers to second line)
@@ -246,6 +254,7 @@ void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, co
 	//For-each step
 	for (unsigned int t = 0; t <= STEPS; ++t)
 	{
+		printf("\r%u/%u", t, STEPS);
 		const glm::uvec2 t_DIMS = INIT_DIMS + glm::uvec2(round(STEP_DIMS.x*t), round(STEP_DIMS.y*t));
 		const unsigned int t_BINS = glm::compMul(t_DIMS);
 		//Init per step constants
@@ -302,4 +311,5 @@ void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, co
 		//Free curand
 		CUDA_CALL(cudaFree(d_rng));
 	}
+	printf("\r%s Completed!\n", logName);
 }
