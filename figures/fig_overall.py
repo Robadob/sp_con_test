@@ -68,8 +68,8 @@ for path in entries:
     plt.rc('ytick', labelsize=8)
     plt.rc('axes', labelsize=8)
     fig = plt.figure()
-    #fig.set_size_inches(3.5, 3.5/1.4)
-    fig.set_size_inches(3.5*3, 3.5*3/1.4)
+    fig.set_size_inches(3.5, 3.5/1.4)
+    #fig.set_size_inches(3.5*3, 3.5*3/1.4)
     co = 6;#5: overall step time, #6: kernel time, #7: rebuild/texture time
     #Label axis
     plt.xlabel('Bin Count');
@@ -91,7 +91,7 @@ for path in entries:
     ### Position Legend
     ###
     #plt.legend(loc='lower right',numpoints=1);
-    plt.legend(loc='upper left',numpoints=1);
+    plt.legend(loc='best',numpoints=1);
     plt.tight_layout();
     ###
     ### Extract name, sans filetype
