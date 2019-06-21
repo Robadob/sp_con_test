@@ -10,6 +10,8 @@
 #include "original.cuh"
 #include "atomic.cuh"
 
+#define RETRIES 200
+
 /**
  * Agent pop remains in initial distribution and environment grows around them
  * @param popSize Total number of agents which inhabit the environment.
@@ -35,7 +37,8 @@ int main()
 	//runStatic(1000000, 5000, 15000000, 200, "static-1m");
 	//runDynamic(100000, 5000, 15000000, 200, "dynamic-100k");
 	//runDynamic(1000000, 5000, 15000000, 200, "dynamic-1m");
-	runDynamic(50000, 5000, 20000000, 200, "dynamic-50k");//Most representative of how I found this with FGPU/KeratinoCyte
+	//runDynamic(50000, 5000, 20000000, 200, "dynamic-50k");//Most representative of how I found this with FGPU/KeratinoCyte
+	runDynamic(500000, 1000, 2000000, 200, "dynamic-500k");
 	return EXIT_SUCCESS;
 }
 
@@ -142,16 +145,31 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 			logF << t_BINS << ",";
 			logF << POP_SIZE << ",";
 		}
-		//Reset actor pop (this *should* be redundant)
-		CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
-		//Run Default
-		auto defaultT = original::construct(POP_SIZE, t_DIMS, t_BINS);
+		original::Times defaultT;
+		defaultT.overall = FLT_MAX;
+		for (unsigned int i = 0; i<RETRIES; ++i)
+		{
+			//Reset actor pop (this *should* be redundant)
+			CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
+			//Run Default
+			auto _defaultT = original::construct(POP_SIZE, t_DIMS, t_BINS);
+			//Save quickest run
+			defaultT = defaultT.overall < _defaultT.overall ? defaultT : _defaultT;
+		}
 		//Log Default
 		original::logResult(logF, defaultT);
-		//Reset actor pop (this *should* be redundant)
-		CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
-		//Run Atomic
-		auto atomicT = atomic::construct(POP_SIZE, t_DIMS, t_BINS);
+
+		atomic::Times atomicT;
+		atomicT.overall = FLT_MAX;
+		for (unsigned int i = 0; i<RETRIES; ++i)
+		{
+			//Reset actor pop (this *should* be redundant)
+			CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
+			//Run Atomic
+			auto _atomicT = atomic::construct(POP_SIZE, t_DIMS, t_BINS);
+			//Save quickest run
+			atomicT = atomicT.overall < _atomicT.overall ? atomicT : _atomicT;
+		}
 		//Log Atomic
 		atomic::logResult(logF, atomicT);
 		//Newline log
@@ -280,16 +298,31 @@ void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, co
 			logF << t_BINS << ",";
 			logF << POP_SIZE << ",";
 		}
-		//Reset actor pop (this *should* be redundant)
-		CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
-		//Run Default
-		auto defaultT = original::construct(POP_SIZE, t_DIMS, t_BINS);
+		original::Times defaultT;
+		defaultT.overall = FLT_MAX;
+		for(unsigned int i=0;i<RETRIES;++i)
+		{
+			//Reset actor pop (this *should* be redundant)
+			CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
+			//Run Default
+			auto _defaultT = original::construct(POP_SIZE, t_DIMS, t_BINS);
+			//Save quickest run
+			defaultT = defaultT.overall < _defaultT.overall ? defaultT : _defaultT;
+		}
 		//Log Default
 		original::logResult(logF, defaultT);
-		//Reset actor pop (this *should* be redundant)
-		CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
-		//Run Atomic
-		auto atomicT = atomic::construct(POP_SIZE, t_DIMS, t_BINS);
+
+		atomic::Times atomicT;
+		atomicT.overall = FLT_MAX;
+		for (unsigned int i=0; i<RETRIES; ++i)
+		{
+			//Reset actor pop (this *should* be redundant)
+			CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
+			//Run Atomic
+			auto _atomicT = atomic::construct(POP_SIZE, t_DIMS, t_BINS);
+			//Save quickest run
+			atomicT = atomicT.overall < _atomicT.overall ? atomicT : _atomicT;
+		}
 		//Log Atomic
 		atomic::logResult(logF, atomicT);
 		//Newline log
