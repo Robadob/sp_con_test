@@ -45,6 +45,8 @@ int main(int argc, char **argv)
 	//runDynamic(1000000, 5000, 15000000, 200, "dynamic-1m");
 	//runDynamic(50000, 5000, 20000000, 200, "dynamic-50k");//Most representative of how I found this with FGPU/KeratinoCyte
 	runDynamic(500000, 1000, 2000000, 200, "dynamic-500k");
+	//runDynamic(500000, 1000, 250000, 200, "dynamic-500k-small");
+	//runStatic(500000, 1000, 250000, 200, "static-500k-small");
 	return EXIT_SUCCESS;
 }
 
@@ -77,6 +79,14 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 		CUDA_CALL(cudaMalloc(&d_keys_swap, sizeof(unsigned int) * POP_SIZE));
 		CUDA_CALL(cudaMalloc(&d_vals_swap, sizeof(unsigned int) * POP_SIZE));
 	}
+	//Init (appropriate SP constants)
+	{
+		CUDA_CALL(cudaMemcpyToSymbol(d_agentCount, &POP_SIZE, sizeof(unsigned int)));
+		const float ONE = 1.0f;
+		const float rSin45 = (float)(ONE*sin(glm::radians(45.0f)));
+		CUDA_CALL(cudaMemcpyToSymbol(d_RADIUS, &ONE, sizeof(float)));
+		CUDA_CALL(cudaMemcpyToSymbol(d_R_SIN_45, &rSin45, sizeof(float)));
+	}
 	//Init Actor Population
 	{
 		//Temp dims for init
@@ -92,14 +102,6 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 		init_agents << <initBlocks, initThreads >> >(d_rng, d_agents_init);
 		//Free curand
 		CUDA_CALL(cudaFree(d_rng));
-	}
-	//Init (appropriate SP constants)
-	{
-		CUDA_CALL(cudaMemcpyToSymbol(d_agentCount, &POP_SIZE, sizeof(unsigned int)));
-		const float ONE = 1.0f;
-		const float rSin45 = (float)(ONE*sin(glm::radians(45.0f)));
-		CUDA_CALL(cudaMemcpyToSymbol(d_RADIUS, &ONE, sizeof(float)));
-		CUDA_CALL(cudaMemcpyToSymbol(d_R_SIN_45, &rSin45, sizeof(float)));
 	}	
 	//Create & open log file
 	std::ofstream logF;
@@ -229,6 +231,14 @@ void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, co
 		CUDA_CALL(cudaMalloc(&d_keys_swap, sizeof(unsigned int) * POP_SIZE));
 		CUDA_CALL(cudaMalloc(&d_vals_swap, sizeof(unsigned int) * POP_SIZE));
 	}
+	//Init (appropriate SP constants)
+	{
+		CUDA_CALL(cudaMemcpyToSymbol(d_agentCount, &POP_SIZE, sizeof(unsigned int)));
+		const float ONE = 1.0f;
+		const float rSin45 = (float)(ONE*sin(glm::radians(45.0f)));
+		CUDA_CALL(cudaMemcpyToSymbol(d_RADIUS, &ONE, sizeof(float)));
+		CUDA_CALL(cudaMemcpyToSymbol(d_R_SIN_45, &rSin45, sizeof(float)));
+	}
 	//Init cuRand
 	{
 		//cuRand
@@ -238,14 +248,6 @@ void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, co
 		unsigned int initBlocks = (POP_SIZE / initThreads) + 1;
 		init_curand << <initBlocks, initThreads >> >(d_rng, RNG_SEED);
 		CUDA_CALL(cudaDeviceSynchronize());
-	}
-	//Init (appropriate SP constants)
-	{
-		CUDA_CALL(cudaMemcpyToSymbol(d_agentCount, &POP_SIZE, sizeof(unsigned int)));
-		const float ONE = 1.0f;
-		const float rSin45 = (float)(ONE*sin(glm::radians(45.0f)));
-		CUDA_CALL(cudaMemcpyToSymbol(d_RADIUS, &ONE, sizeof(float)));
-		CUDA_CALL(cudaMemcpyToSymbol(d_R_SIN_45, &rSin45, sizeof(float)));
 	}
 	//Create & open log file
 	std::ofstream logF;
