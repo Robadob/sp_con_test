@@ -1,8 +1,8 @@
 #ifndef __common_h__
 #define __common_h__
 
-#define GLM_FORCE_CUDA
-#define GLM_FORCE_NO_CTOR_INIT
+//#define GLM_FORCE_CUDA
+//#define GLM_FORCE_NO_CTOR_INIT
 
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"

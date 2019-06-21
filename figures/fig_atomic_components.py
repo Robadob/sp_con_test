@@ -35,10 +35,10 @@ def plotLine(name, xData, yData, color, symbol, line='-', doPoints=True):
 def loadCSV(path):
     return np.loadtxt(
          path,
-         dtype=[('Bin Count','int'), ('Population','int'),('atomic overall(ms)','float'),('atomic histogram(ms)','float'),('atomic scan(ms)','float'),('atomic reorder(ms)','float'),('atomic tex(ms)','float')],
+         dtype=[('Bin Count','int'), ('Population','int'),('atomic overall(ms)','float'),('atomic memset(ms)','float'),('atomic histogram(ms)','float'),('atomic scan(ms)','float'),('atomic reorder(ms)','float'),('atomic tex(ms)','float')],
          skiprows=2,
          delimiter=',',
-         usecols=(2,3,10,11,12,13,14),
+         usecols=(2,3,10,11,12,13,14,15),
          unpack=True
      );
 ###        
@@ -82,6 +82,7 @@ for path in entries:
     atomic_reorder = csv.pop(-1);
     atomic_scan = csv.pop(-1);
     atomic_histogram = csv.pop(-1);
+    atomic_memset = csv.pop(-1);
     atomic_overall = csv.pop(-1);
     pop_size = csv.pop(-1);
     bin_count = csv.pop(-1);
@@ -89,10 +90,11 @@ for path in entries:
     ### Filter data, Only publish bin width's that we want
     ###
     plotLine('Overall', bin_count, atomic_overall, colors[0], lines[0])
-    plotLine('Histogram', bin_count, atomic_histogram, colors[1], lines[1])
-    plotLine('Scan', bin_count, atomic_scan, colors[2], lines[2])
-    plotLine('Reorder', bin_count, atomic_reorder, colors[3], lines[3])
-    plotLine('Tex', bin_count, atomic_tex, colors[4], lines[4])
+    plotLine('Memset', bin_count, atomic_memset, colors[1], lines[1])
+    plotLine('Histogram', bin_count, atomic_histogram, colors[2], lines[2])
+    plotLine('Scan', bin_count, atomic_scan, colors[3], lines[3])
+    plotLine('Reorder', bin_count, atomic_reorder, colors[4], lines[4])
+    plotLine('Tex', bin_count, atomic_tex, colors[5], lines[5])
     ###
     ### Position Legend
     ###

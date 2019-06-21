@@ -35,7 +35,7 @@ int main(int argc, char **argv)
 	if(argc>1)
 	{//Set cuda device
 		long int cudaDevice = strtol(argv[1], nullptr, 0);
-		printf("Attempting to set CUDA device %d.\n", cudaDevice);
+		printf("Attempting to set CUDA device %ld.\n", cudaDevice);
 		cudaSetDevice(static_cast<int>(cudaDevice));
 	}
 	//Static distribution of agents

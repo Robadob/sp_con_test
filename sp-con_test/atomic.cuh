@@ -9,6 +9,7 @@ namespace atomic
 {
 	struct Times : ConstructionTimes
 	{
+		float memset = 0;
 		float histogram = 0;
 		float scan = 0;
 		float reorder = 0;
@@ -54,8 +55,9 @@ namespace atomic
 	{
 		Times t = {};
 
-		cudaEvent_t start_PBM, end_histogram, end_scan, end_reorder, end_PBM;
+		cudaEvent_t start_PBM, end_memset, end_histogram, end_scan, end_reorder, end_PBM;
 		cudaEventCreate(&start_PBM);
+		cudaEventCreate(&end_memset);
 		cudaEventCreate(&end_histogram);
 		cudaEventCreate(&end_scan);
 		cudaEventCreate(&end_reorder);
@@ -82,8 +84,11 @@ namespace atomic
 		//	CUDA_CALL(cudaMemcpy(d_out, d_agents_init, sizeof(glm::vec2)*POPULATION_SIZE, cudaMemcpyDeviceToDevice));
 
 			cudaEventRecord(start_PBM);
-			{//Build atomic histogram
+			{//Reset histogram
 				CUDA_CALL(cudaMemset(d_PBM_counts, 0x00000000, (BIN_COUNT + 1) * sizeof(unsigned int)));
+			}
+			cudaEventRecord(end_memset);
+			{//Build atomic histogram
 				int blockSize;   // The launch configurator returned block size 
 				CUDA_CALL(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&blockSize, atomicHistogram, 32, 0));//Randomly 32
 																											 // Round up according to array size
@@ -121,11 +126,13 @@ namespace atomic
 			cudaEventSynchronize(end_PBM);
 			Times _t;
 			cudaEventElapsedTime(&_t.overall, start_PBM, end_PBM);
-			cudaEventElapsedTime(&_t.histogram, start_PBM, end_histogram);
+			cudaEventElapsedTime(&_t.memset, start_PBM, end_memset);
+			cudaEventElapsedTime(&_t.histogram, end_memset, end_histogram);
 			cudaEventElapsedTime(&_t.scan, end_histogram, end_scan);
 			cudaEventElapsedTime(&_t.reorder, end_scan, end_reorder);
 			cudaEventElapsedTime(&_t.tex, end_reorder, end_PBM);
 			t.overall += _t.overall;
+			t.memset += _t.memset;
 			t.histogram += _t.histogram;
 			t.scan += _t.scan;
 			t.reorder += _t.reorder;
@@ -133,6 +140,7 @@ namespace atomic
 		//}//for-ITERATIONS
 		//Reduce to average
 		t.overall /= ITERATIONS;
+		t.memset /= ITERATIONS;
 		t.histogram /= ITERATIONS;
 		t.scan /= ITERATIONS;
 		t.reorder /= ITERATIONS;
@@ -143,6 +151,7 @@ namespace atomic
 	void logHeader(std::ofstream &f, unsigned int &i)
 	{
 		f << "(" << (i++) << ") " << "Atomic_Overall,";
+		f << "(" << (i++) << ") " << "Atomic_Memset,";
 		f << "(" << (i++) << ") " << "Atomic_Histogram,";
 		f << "(" << (i++) << ") " << "Atomic_Scan,";
 		f << "(" << (i++) << ") " << "Atomic_Reorder,";
@@ -151,6 +160,7 @@ namespace atomic
 	void logResult(std::ofstream &f, const Times &t)
 	{
 		f << t.overall << ",";
+		f << t.memset << ",";
 		f << t.histogram << ",";
 		f << t.scan << ",";
 		f << t.reorder << ",";
