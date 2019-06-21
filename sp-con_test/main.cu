@@ -30,8 +30,14 @@ void runStatic(const unsigned int &popSize, const unsigned int &startBins, const
  */
 void runDynamic(const unsigned int &popSize, const unsigned int &startBins, const unsigned int &endBins, const unsigned int &steps, const char *logPath);
 
-int main()
+int main(int argc, char **argv)
 {
+	if(argc>1)
+	{//Set cuda device
+		long int cudaDevice = strtol(argv[1], nullptr, 0);
+		printf("Attempting to set CUDA device %d.\n", cudaDevice);
+		cudaSetDevice(static_cast<int>(cudaDevice));
+	}
 	//Static distribution of agents
 	//runStatic(100000, 5000, 15000000, 200, "static-100k");
 	//runStatic(1000000, 5000, 15000000, 200, "static-1m");
