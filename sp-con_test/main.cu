@@ -19,7 +19,7 @@
  * @param endBins The (approximate) number of bins of the final run
  * @param steps The number of steps to be executed (total runs = steps+1)
  */
-void runStatic(const unsigned int &popSize, const unsigned int &startBins, const unsigned int &endBins, const unsigned int &steps, const char *logPath);
+void runStatic(const unsigned int &popSize, const unsigned int &startBins, const unsigned int &endBins, const unsigned int &steps, const char *logPath, bool preSort = false);
 /**
  * Agent pop remains uniform randomly distributed about the environment
  * This will take a while to run for large agent pop sizes, due to cuRand.
@@ -28,7 +28,7 @@ void runStatic(const unsigned int &popSize, const unsigned int &startBins, const
  * @param endBins The (approximate) number of bins of the final run
  * @param steps The number of steps to be executed (total runs = steps+1)
  */
-void runDynamic(const unsigned int &popSize, const unsigned int &startBins, const unsigned int &endBins, const unsigned int &steps, const char *logPath);
+void runDynamic(const unsigned int &popSize, const unsigned int &startBins, const unsigned int &endBins, const unsigned int &steps, const char *logPath, bool preSort = false);
 
 int main(int argc, char **argv)
 {
@@ -39,18 +39,15 @@ int main(int argc, char **argv)
 		cudaSetDevice(static_cast<int>(cudaDevice));
 	}
 	//Static distribution of agents
-	//runStatic(100000, 5000, 15000000, 200, "static-100k");
-	//runStatic(1000000, 5000, 15000000, 200, "static-1m");
-	//runDynamic(100000, 5000, 15000000, 200, "dynamic-100k");
-	//runDynamic(1000000, 5000, 15000000, 200, "dynamic-1m");
 	//runDynamic(50000, 5000, 20000000, 200, "dynamic-50k");//Most representative of how I found this with FGPU/KeratinoCyte
-	runDynamic(500000, 1000, 2000000, 200, "dynamic-500k");
-	//runDynamic(500000, 1000, 250000, 200, "dynamic-500k-small");
-	//runStatic(500000, 1000, 250000, 200, "static-500k-small");
+	//runDynamic(1000000, 5000, 1000000, 200, "dynamic-1m");//Presented in thesis as graphs
+	//runDynamic(5000000, 5000, 1000000, 200, "dynamic-5m");//Discussed in thesis, sans graph
+	//runDynamic(100000, 5000, 1000000, 200, "dynamic-100k");//Discussed in thesis, sans graph
+	runDynamic(1000000, 5000, 1000000, 200, "dynamic-1m-sorted", true);
 	return EXIT_SUCCESS;
 }
 
-void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, const unsigned int &END_BINS, const unsigned int &STEPS, const char *logName)
+void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, const unsigned int &END_BINS, const unsigned int &STEPS, const char *logName, bool preSort)
 {
 	//Defined out of scope of methods being tested
 	glm::vec2 *d_agents_init;
@@ -102,7 +99,7 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 		init_agents << <initBlocks, initThreads >> >(d_rng, d_agents_init);
 		//Free curand
 		CUDA_CALL(cudaFree(d_rng));
-	}	
+	}
 	//Create & open log file
 	std::ofstream logF;
 	{
@@ -157,8 +154,11 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 		defaultT.overall = FLT_MAX;
 		for (unsigned int i = 0; i<RETRIES; ++i)
 		{
-			//Reset actor pop (this *should* be redundant)
-			CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
+			if (i == 0 || !preSort)
+			{
+				//Reset actor pop
+				CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
+			}
 			//Run Default
 			auto _defaultT = original::construct(POP_SIZE, t_DIMS, t_BINS);
 			//Save quickest run
@@ -171,8 +171,11 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 		atomicT.overall = FLT_MAX;
 		for (unsigned int i = 0; i<RETRIES; ++i)
 		{
-			//Reset actor pop (this *should* be redundant)
-			CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
+			if(i==0||!preSort)
+			{
+				//Reset actor pop
+				CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
+			}
 			//Run Atomic
 			auto _atomicT = atomic::construct(POP_SIZE, t_DIMS, t_BINS);
 			//Save quickest run
@@ -202,7 +205,7 @@ void runStatic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, con
 	}
 	printf("\r%s Completed!\n", logName);
 }
-void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, const unsigned int &END_BINS, const unsigned int &STEPS, const char *logName)
+void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, const unsigned int &END_BINS, const unsigned int &STEPS, const char *logName, bool preSort)
 {
 	//Defined out of scope of methods being tested
 	glm::vec2 *d_agents_init;
@@ -310,8 +313,11 @@ void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, co
 		defaultT.overall = FLT_MAX;
 		for(unsigned int i=0;i<RETRIES;++i)
 		{
-			//Reset actor pop (this *should* be redundant)
-			CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
+			if (i == 0 || !preSort)
+			{
+				//Reset actor pop (this *should* be redundant)
+				CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
+			}
 			//Run Default
 			auto _defaultT = original::construct(POP_SIZE, t_DIMS, t_BINS);
 			//Save quickest run
@@ -324,8 +330,11 @@ void runDynamic(const unsigned int &POP_SIZE, const unsigned int &START_BINS, co
 		atomicT.overall = FLT_MAX;
 		for (unsigned int i=0; i<RETRIES; ++i)
 		{
-			//Reset actor pop (this *should* be redundant)
-			CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
+			if (i == 0 || !preSort)
+			{
+				//Reset actor pop (this *should* be redundant)
+				CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_init, sizeof(glm::vec2)*POP_SIZE, cudaMemcpyDeviceToDevice));
+			}
 			//Run Atomic
 			auto _atomicT = atomic::construct(POP_SIZE, t_DIMS, t_BINS);
 			//Save quickest run

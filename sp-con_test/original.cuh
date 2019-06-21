@@ -190,6 +190,8 @@ namespace original
 			CUDA_CALL(cudaBindTexture(nullptr, d_texPBM_counts, d_PBM_counts, sizeof(unsigned int) * (BIN_COUNT)));
 		}
 		cudaEventRecord(end_PBM);
+		//Copy output to input array
+		CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_out, sizeof(glm::vec2)*POPULATION_SIZE, cudaMemcpyDeviceToDevice));
 		CUDA_CALL(cudaDeviceSynchronize());
 		//Release temp resources
 		CUDA_CALL(cudaUnbindTexture(d_texPBM_counts));

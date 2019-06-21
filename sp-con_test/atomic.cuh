@@ -119,6 +119,8 @@ namespace atomic
 			}
 			cudaEventRecord(end_PBM);
 			CUDA_CALL(cudaDeviceSynchronize());
+			//Copy output to input array
+			CUDA_CALL(cudaMemcpy(d_agents_in, d_agents_out, sizeof(glm::vec2)*POPULATION_SIZE, cudaMemcpyDeviceToDevice));
 		    //Release temp resources
 			CUDA_CALL(cudaUnbindTexture(d_texPBM));
 			CUDA_CALL(cudaUnbindTexture(d_texMessages));
