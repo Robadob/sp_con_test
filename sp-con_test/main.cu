@@ -67,7 +67,8 @@ int main(int argc, char **argv)
 	//runDynamic(1000000, 5000, 1000000, 200, "dynamic-1m");//Presented in thesis as graphs
 	//runDynamic(5000000, 5000, 1000000, 200, "dynamic-5m");//Discussed in thesis, sans graph
 	//runDynamic(100000, 5000, 1000000, 200, "dynamic-100k");//Discussed in thesis, sans graph
-	runDynamic(1000000, 5000, 1000000, 200, "dynamic-1m-sorted", true);
+	//runDynamic(1000000, 5000, 1000000, 200, "dynamic-1m-sorted", true);//Presented in these as overall graph
+	runSweep(100000, 1500000, 15, 5, 175, 18, "sweep-sorted", true);
 	return EXIT_SUCCESS;
 }
 
@@ -415,7 +416,7 @@ void runSweep(
 	const unsigned int &density_start,
 	const unsigned int &density_end,
 	const unsigned int &density_steps,
-	const char *logName, bool preSort
+	const char *logName, bool preSort 
 )
 {
 	//Defined out of scope of methods being tested
@@ -446,7 +447,6 @@ void runSweep(
 	}
 	//Init (appropriate SP constants)
 	{
-		CUDA_CALL(cudaMemcpyToSymbol(d_agentCount, &MAX_AGENTS, sizeof(unsigned int)));
 		const float ONE = 1.0f;
 		const float rSin45 = (float)(ONE*sin(glm::radians(45.0f)));
 		CUDA_CALL(cudaMemcpyToSymbol(d_RADIUS, &ONE, sizeof(float)));
@@ -497,18 +497,19 @@ void runSweep(
 	}
 	//Some constants for calcing interpolation
 	const unsigned int INIT_POP = popSize_start;
-	const float STEP_POP = static_cast<float>(popSize_start - popSize_end) / popSize_steps;
+	const float STEP_POP = static_cast<float>(popSize_end- popSize_start) / popSize_steps;
 	const unsigned int INIT_DENSITY = density_start;
-	const float STEP_DENSITY = static_cast<float>(density_start - density_end) / density_steps;
+	const float STEP_DENSITY = static_cast<float>(density_end-density_start) / density_steps;
 	//For-each step
 	for (unsigned int ps = 0; ps <= popSize_steps; ++ps)
 	{
+		const unsigned int t_POP_SIZE = INIT_POP + (ps*STEP_POP);
+		CUDA_CALL(cudaMemcpyToSymbol(d_agentCount, &t_POP_SIZE, sizeof(unsigned int)));
 		for (unsigned int dn = 0; dn <= density_steps; ++dn)
 		{
 			//Output progress
 			printf("\r%u/%u", (ps*(density_steps+1))+ dn, (popSize_steps + 1)*(density_steps + 1));
 			//Calc step config
-			const unsigned int t_POP_SIZE = INIT_POP + (ps*STEP_POP);
 			const float t_DENSITY = INIT_DENSITY + (dn*STEP_DENSITY);
 			const glm::uvec2 t_DIMS = glm::uvec2(X_WIDTH, static_cast<unsigned int>(ceil((t_POP_SIZE/t_DENSITY) / X_WIDTH)));
 			const unsigned int t_BINS = glm::compMul(t_DIMS);
