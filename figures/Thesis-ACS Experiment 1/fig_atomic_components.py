@@ -48,7 +48,7 @@ pattern = re.compile("\.csv$");
 # get all entries in the directory w/ stats
 entries = (os.path.join('.', fn) for fn in os.listdir('.'))
 
-# leave only regular files, insert creation date
+# leave only regular files
 entries = ((path)
            for path in entries if (bool (pattern.search(path))))
 
