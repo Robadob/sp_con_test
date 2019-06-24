@@ -455,6 +455,7 @@ void runSweep(
 	//Init cuRand
 	{
 		//cuRand
+		CUDA_CALL(cudaMemcpyToSymbol(d_agentCount, &MAX_AGENTS, sizeof(unsigned int)));
 		CUDA_CALL(cudaMalloc(&d_rng, MAX_AGENTS * sizeof(curandState)));
 		//Arbitrary thread block sizes (speed not too important during one off initialisation)
 		unsigned int initThreads = 512;
