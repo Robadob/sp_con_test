@@ -74,6 +74,7 @@ for path in entries:
     #Label axis
     plt.xlabel('Bin Count');
     plt.ylabel('Overall Construction Time (ms)');
+    plt.ticklabel_format(style='sci', useMathText=True, axis='x', scilimits=(0,0));
     ###
     ### Load Data, Create tuples of matching columns from each file
     ###

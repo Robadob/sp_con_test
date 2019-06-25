@@ -41,8 +41,9 @@ for path in entries:
     fig.set_size_inches(3.5, 3.5/1.4)
     #fig.set_size_inches(3.5*3, 3.5*3/1.4)
     #Label axis
-    ax1.set_xlabel(r'Actor Count ($10^{6}$)');
+    ax1.set_xlabel(r'Actor Count');
     ax1.set_ylabel('Avg Actors Per Bin');
+    ax1.ticklabel_format(style='sci', useMathText=True, axis='x', scilimits=(0,0))
     #ax2 = ax1.twinx();
     #ax2.set_ylabel('Percentage (%)');
     ###
@@ -58,10 +59,8 @@ for path in entries:
     ### Filter data
     ###
     colorData = [];
-    actorPop2 = [];
     for i in range(len(actorPop)):
         colorData.append((atomic[i]/original[i])*100); #MS  
-        actorPop2.append(actorPop[i]/1000000.0);
     ###
     ### Count items
     ###
@@ -75,13 +74,13 @@ for path in entries:
     ###
     ### PlotGraph
     ###
-    plt.hexbin(actorPop2, actorsPerBin, C=colorData, gridsize=(actorItems,apbItems), cmap=cm.jet, bins=None)
-    plt.axis([min(actorPop2), max(actorPop2), min(actorsPerBin), max(actorsPerBin)])            
+    plt.hexbin(actorPop, actorsPerBin, C=colorData, gridsize=(actorItems,apbItems), cmap=cm.jet, bins=None)
+    plt.axis([min(actorPop), max(actorPop), min(actorsPerBin), max(actorsPerBin)])            
     ###
     ### Position Legend
     ###
     cb = plt.colorbar()
-    cb.set_label('ACS/CUBWord (%)')
+    cb.set_label('ACS/Original (%)')
     plt.tight_layout();
     ###
     ### Extract name, sans filetype

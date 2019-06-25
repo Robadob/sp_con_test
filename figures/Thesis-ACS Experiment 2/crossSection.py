@@ -71,7 +71,7 @@ fig.set_size_inches(3.5, 3.5/1.4)
 if csType==7:
     ax1.set_xlabel('Avg Actors Per Bin');
 elif csType==8:
-    ax1.set_xlabel(r'Actor Count ($10^{6}$)');
+    ax1.set_xlabel(r'Actor Count');
 ax1.set_ylabel('Construction Time (ms)');
 ax1.ticklabel_format(style='sci', useMathText=True, axis='x', scilimits=(0,0))
 ax2 = ax1.twinx();
@@ -102,7 +102,7 @@ for i in range(len(actorPop)):
             colorData.append((atomic[i]/original[i])*100);
     elif csType==8:#Filter neighbourAvg
         if abs(actorsPerBin[i]-filterArg)<0.01:#Epsilon equal within range 0.1
-            xVals.append(actorPop[i]/1000000.0);
+            xVals.append(actorPop[i]);
             yAtomic.append(atomic[i]);
             yOriginal.append(original[i]);
             colorData.append((atomic[i]/original[i])*100);
