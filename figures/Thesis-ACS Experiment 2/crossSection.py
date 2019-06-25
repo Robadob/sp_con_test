@@ -112,9 +112,9 @@ if len(xVals) == 0:
 ###
 ### Plot Graph
 ###  
-plotLine(ax1, "Original", xVals, yOriginal, 'r', '-');
-plotLine(ax1, "ACS", xVals, yAtomic, 'g', '-');
-plotLine(ax2, "ACS/Original", xVals, colorData, 'b', '-');       
+plotLine(ax1, "Original", xVals, yOriginal, '#000000', ':');
+plotLine(ax1, "ACS", xVals, yAtomic, '#000000', '--');
+plotLine(ax2, "ACS/Original", xVals, colorData, '#999999', '-');       
 ###
 ### Position Legend
 ###
